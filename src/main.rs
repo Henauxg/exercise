@@ -10,6 +10,8 @@ fn parse_csv_from_stdin() -> (usize, usize) {
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
 
+    // TODO Skip empty lines
+
     // Parse CSV headers
     let Some(Ok(headers_line)) = lines.next() else {
         return (0, 0);
@@ -53,15 +55,38 @@ fn parse_csv_from_stdin() -> (usize, usize) {
     (valid_count, invalid_count)
 }
 
-fn is_valid_gtin_13(_ean: &str) -> bool {
-    // TODO
-    false
+fn is_valid_gtin_13(ean_str: &str) -> bool {
+    // Remove all leading zeros
+    let ean_str = ean_str.trim_start_matches('0');
+
+    // Size should now be a GTIN 13
+    // TODO: "3" is arbitrary, to reject empty string or ean that are too short. See the spec for more details
+    if ean_str.len() > 13 || ean_str.len() < 3 {
+        return false;
+    }
+
+    let Some(non_padded_ean) = ean_str
+        .chars()
+        .map(|c| c.to_digit(10))
+        .collect::<Option<Vec<u32>>>()
+    else {
+        return false;
+    };
+
+    // TODO Test Prefixes
+
+    // Pad with zeros if < 13
+    let zeros_padding_len = 13 - non_padded_ean.len();
+    let mut ean = vec![0; zeros_padding_len];
+    ean.extend(non_padded_ean);
+
+    // Test checksum
+    let theoretical_checksum = gtin_13_checksum(&ean);
+    theoretical_checksum == ean[12]
 }
 
-fn gtin_13_checksum(ean: Vec<u8>) -> Option<u8> {
-    if ean.len() < 12 {
-        return None;
-    }
+/// Assumes ean.len >= 12
+fn gtin_13_checksum(ean: &Vec<u32>) -> u32 {
     let sum = ean[0]
         + 3 * ean[1]
         + ean[2]
@@ -80,7 +105,7 @@ fn gtin_13_checksum(ean: Vec<u8>) -> Option<u8> {
         n => 10 - n,
     };
 
-    Some(checksum)
+    checksum
 }
 
 #[cfg(test)]
@@ -89,7 +114,7 @@ mod tests {
 
     #[test]
     fn checksums() {
-        let result = gtin_13_checksum(vec![4, 0, 6, 5, 4, 1, 8, 4, 4, 8, 2, 4]);
-        assert_eq!(result, Some(6));
+        let result = gtin_13_checksum(&vec![4, 0, 6, 5, 4, 1, 8, 4, 4, 8, 2, 4]);
+        assert_eq!(result, 6);
     }
 }
