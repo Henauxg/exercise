@@ -8,9 +8,11 @@ fn main() {
 
 fn parse_csv_from_stdin() -> (usize, usize) {
     let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
-
-    // TODO Skip empty lines
+    let mut lines = stdin.lock().lines().filter(|l| {
+        let Ok(line) = l else { return false };
+        // Skip empty lines
+        !line.is_empty()
+    });
 
     // Parse CSV headers
     let Some(Ok(headers_line)) = lines.next() else {
@@ -34,10 +36,6 @@ fn parse_csv_from_stdin() -> (usize, usize) {
             invalid_count += 1;
             continue;
         };
-        if line.is_empty() {
-            // "If the line is empty, skip it"
-            continue;
-        }
         let columns: Vec<&str> = line.split(',').collect();
         let Some(ean_str) = columns.get(ean_column_index) else {
             invalid_count += 1;
