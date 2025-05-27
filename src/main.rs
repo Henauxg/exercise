@@ -59,7 +59,7 @@ fn is_valid_gtin_13(_ean: &str) -> bool {
 }
 
 fn gtin_13_checksum(ean: Vec<u8>) -> Option<u8> {
-    if ean.len() < 13 {
+    if ean.len() < 12 {
         return None;
     }
     let sum = ean[0]
@@ -81,4 +81,15 @@ fn gtin_13_checksum(ean: Vec<u8>) -> Option<u8> {
     };
 
     Some(checksum)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn checksums() {
+        let result = gtin_13_checksum(vec![4, 0, 6, 5, 4, 1, 8, 4, 4, 8, 2, 4]);
+        assert_eq!(result, Some(6));
+    }
 }
