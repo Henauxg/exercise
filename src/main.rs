@@ -59,8 +59,11 @@ fn parse_csv_from_stdin() -> Option<(usize, usize)> {
 }
 
 fn is_valid_gtin_13(ean_str: &str) -> bool {
-    // Remove all leading zeros
-    let ean_str = ean_str.trim_start_matches('0');
+    // Ignore all leading zeros
+    let Some(first_non_zero_index) = ean_str.find(|c| (c != '0')) else {
+        return false;
+    };
+    let ean_str = &ean_str[first_non_zero_index..];
 
     // Size should now be a GTIN 13
     // TODO: "3" is arbitrary, to reject empty string or ean that are too short. See the spec for more details
@@ -90,18 +93,11 @@ fn is_valid_gtin_13(ean_str: &str) -> bool {
 
 /// Assumes ean.len >= 12
 fn gtin_13_checksum(ean: &Vec<u32>) -> u32 {
-    let sum = ean[0]
-        + 3 * ean[1]
-        + ean[2]
-        + 3 * ean[3]
-        + ean[4]
-        + 3 * ean[5]
-        + ean[6]
-        + 3 * ean[7]
-        + ean[8]
-        + 3 * ean[9]
-        + ean[10]
-        + 3 * ean[11];
+    let sum = ean
+        .iter()
+        .enumerate()
+        .map(|(index, d)| if index % 2 == 0 { *d } else { 3 * d })
+        .sum::<u32>();
 
     let checksum = match sum % 10 {
         0 => 0,
