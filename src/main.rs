@@ -1,41 +1,46 @@
 use std::io::{self, BufRead};
 
 fn main() {
-    let (valid_count, invalid_count) = parse_csv_from_stdin();
+    let (valid_count, invalid_count) = match parse_csv_from_stdin() {
+        Some((valid_count, invalid_count)) => (valid_count, invalid_count),
+        None => (0, 0),
+    };
 
     println!("{valid_count} {invalid_count}");
 }
 
-fn parse_csv_from_stdin() -> (usize, usize) {
+fn parse_csv_from_stdin() -> Option<(usize, usize)> {
     let stdin = io::stdin();
-    let mut lines = stdin.lock().lines().filter(|l| {
-        let Ok(line) = l else { return false };
+    let mut lines = stdin.lock().lines().filter_map(|l| {
+        // Signal reading error by a None value
+        let Ok(line) = l else { return Some(None) };
         // Skip empty lines
-        !line.is_empty()
+        if !line.is_empty() {
+            Some(Some(line))
+        } else {
+            None
+        }
     });
 
     // Parse CSV headers
-    let Some(Ok(headers_line)) = lines.next() else {
-        return (0, 0);
-    };
-    let headers: Vec<&str> = headers_line.split(',').collect();
-    // Find the "ean" header
-    let ean_column_index = match headers.iter().position(|c| *c == "ean") {
-        Some(column_index) => column_index,
-        // "If the header is missing, it will be the first column"
-        None => 0,
+    let headers_line = lines.next()??;
+    let ean_column_index = {
+        let headers: Vec<&str> = headers_line.split(',').collect();
+        // Find the "ean" header
+        match headers.iter().position(|c| *c == "ean") {
+            Some(column_index) => column_index,
+            // "If the header is missing, it will be the first column"
+            None => 0,
+        }
     };
 
     let mut valid_count = 0;
     let mut invalid_count = 0;
 
-    // Parse content
+    // Parse CSV content
     while let Some(line) = lines.next() {
-        let Ok(line) = line else {
-            // TODO Should it be considered an error on the whole file ?
-            invalid_count += 1;
-            continue;
-        };
+        // Unwrap reading errors
+        let line = line?;
         let columns: Vec<&str> = line.split(',').collect();
         let Some(ean_str) = columns.get(ean_column_index) else {
             invalid_count += 1;
@@ -50,7 +55,7 @@ fn parse_csv_from_stdin() -> (usize, usize) {
         };
     }
 
-    (valid_count, invalid_count)
+    Some((valid_count, invalid_count))
 }
 
 fn is_valid_gtin_13(ean_str: &str) -> bool {
